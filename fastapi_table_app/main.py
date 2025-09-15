@@ -23,6 +23,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import urllib.parse
 from urllib.parse import unquote, quote
 
+nas_PATH = "H:/Nas_Video_Viewer/fastapi_table_app/TEST_NAS"
+
+
 
 
 # ロギング設定
@@ -298,7 +301,7 @@ logger.info("テンプレートディレクトリの設定完了")
 
 # NASDataScannerの初期化
 try:
-    NAS_BASE_PATH = "H:/Nas_Video_Viewer/fastapi_table_app/TEST_NAS"
+    NAS_BASE_PATH = nas_PATH
     logger.info(f"スキャナーの初期化開始: NAS_BASE_PATH={NAS_BASE_PATH}")
 
     # ディレクトリのアクセス権限を確認
