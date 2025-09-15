@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"> -->
+    <link rel="stylesheet" href="/static/css/flatpickr.min.css">
+    <style>
+    /* ==================== 機器名ごとのカラースキーム ==================== */
+    .device-row {
+        transition: background-color 0.3s ease;
+    }
+
+    /* 指定列の文字色を黒に設定 */
+    .data-table td:nth-child(1),  /* 機器名 */
+    .data-table td:nth-child(2),  /* 撮影日時 */
+    .data-table td:nth-child(3),  /* オプション */
+    .data-table td:nth-child(6) { /* 日付 */
+        color: #000000;
+    }
+
+    /* ホバー時の色調整 */
+    .data-table tr:hover {
+        filter: brightness(95%);
+    }
+
+    /* ==================== 分類別カラースキーム ==================== */
+    .category-cell.type-人物 { background-color: #FFEBEE; color: #B71C1C; }
+    .category-cell.type-その他 { background-color: #E8F5E9; color: #1B5E20; }
+    .category-cell.type-誤検知 { background-color: #E3F2FD; color: #0D47A1; }
+    .category-cell.type-エラー { background-color: #FFFDE7; color: #F57F17; }
+
+    /* ファイルパス列のスタイル（修正版） */
+    .file-path-cell {
+        font-family: monospace;
+        font-size: 0.85em;
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+        background-color: #e8f5e9;  /* 薄い緑色の背景 */
+        color: #1b5e20;             /* 濃い緑色の文字 */
+        border-radius: 3px;
+        padding: 8px !important;
+        border: 1px solid #4caf50;  /* 緑色のボーダー */
+        transition: all 0.3s ease;
+        position: relative;         /* 追加：相対位置指定 */
+    }
+
+    .file-path-cell:hover {
+        background-color: #c8e6c9;  /* ホバー時はより濃い緑 */
+        color: #0d4b14;             /* ホバー時はより濃い緑文字 */
+        transform: scale(1.02);
+        z-index: 10;
+        box-shadow: 0 2px 8px rgba(76,175,80,0.3);
+    }
+
+    /* ホバー時のツールチップスタイル */
+    .file-path-cell::after {
+        content: attr(data-full-path);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        background-color: #f8f9fa;
+        color: #495057;
+        padding: 8px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        white-space: normal;
+        word-break: break-all;
+        max-width: 400px;
+        z-index: 1000;
+        display: none;
+        font-size: 0.9em;
+        border: 1px solid #dee2e6;
+    }
+
+    .file-path-cell:hover::after {
+        display: block;
+    }
+
+    .file-path-cell::before {
+        content: "🎬 ";  /* 動画アイコン */
+        margin-right: 3px;
+    }
+
+    /* 統計情報スタイル */
+    .stats-section {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        border-left: 4px solid #007bff;
+    }
+
+    .stats-info {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    .stat-item {
+        background-color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+        border: 1px solid #dee2e6;
+        text-align: center;
+        min-width: 120px;
+    }
+
+    .stat-item.oldest-item {
+        background-color: #f6f6f6;
+        border: 1.5px dashed #b0b0b0;
+        color: #888;
+        opacity: 0.85;
+    }
+
+    .stat-item.oldest-item .stat-value {
+        color: #888;
+        font-size: 1.2em;
+    }
+
+    .stat-item.oldest-item .stat-label {
+        color: #888;
+    }
+
+    .stat-item.oldest-item .oldest-desc {
+        font-size: 0.8em;
+        color: #b0b0b0;
+    }
+
+    .stat-value {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #007bff;
+    }
+
+    .stat-label {
+        font-size: 0.9em;
+        color: #6c757d;
+    }
+
+    /* リフレッシュボタン */
+    .refresh-btn {
+        background-color: #17a2b8;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9em;
+        margin-left: 10px;
+        transition: background-color 0.2s;
+    }
+
+    .refresh-btn:hover {
+        background-color: #138496;
+    }
+
+    /* 動画モーダルスタイル（新規追加） */
+    .video-modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.8);
+        backdrop-filter: blur(5px);
+    }
+
+    .video-modal-content {
+        background-color: #fefefe;
+        margin: 5% auto;
+        padding: 20px;
+        border: none;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 1000px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    .video-container {
+        position: relative;
+        width: 100%;
+        background-color: #000;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .video-player {
+        width: 100%;
+        height: auto;
+        max-height: 70vh;
+        background-color: #000;
+    }
+
+    .video-controls {
+        margin-top: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .video-info {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+        color: #495057;
+        word-break: break-all;
+    }
+
+    .video-close-btn {
+        background: linear-gradient(45deg, #dc3545, #c82333);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .video-close-btn:hover {
+        background: linear-gradient(45deg, #c82333, #a71e2a);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(220,53,69,0.3);
+    }
+
+    .video-download-btn {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .video-download-btn:hover {
+        background: linear-gradient(45deg, #218838, #1ea68a);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(40,167,69,0.3);
+    }
+
+    /* モーダルスタイル */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        border-radius: 8px;
+        width: 80%;
+        max-width: 600px;
+    }
+
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* レスポンシブ対応 */
+    @media (max-width: 768px) {
+        .video-modal-content {
+            width: 95%;
+            margin: 10% auto;
+            padding: 15px;
+        }
+
+        .video-player {
+            max-height: 50vh;
+        }
+
+        .video-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .video-controls button,
+        .video-controls a {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+    }
+
+    .search-btn {
+        margin-left: 18px;
+        padding: 10px 28px;
+        background: linear-gradient(45deg, #007bff, #00c6ff);
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        font-size: 1.1em;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0,123,255,0.08);
+        transition: background 0.2s, transform 0.1s;
+    }
+    .search-btn:hover {
+        background: linear-gradient(45deg, #0056b3, #00aaff);
+        transform: translateY(-2px) scale(1.03);
+    }
+    .date-search-form {
+        display: flex;
+        align-items: flex-end;
+        gap: 20px;
+        background: #f4f8fb;
+        border-radius: 8px;
+        padding: 18px 24px 12px 24px;
+        margin-bottom: 18px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        flex-wrap: wrap;
+    }
+    .date-search-fields {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+    }
+    .date-field {
+        display: flex;
+        flex-direction: column;
+        min-width: 120px;
+    }
+    .date-field label {
+        font-size: 0.95em;
+        color: #007bff;
+        margin-bottom: 4px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+    }
+    .date-field input {
+        padding: 7px 10px;
+        border: 1px solid #bcdffb;
+        border-radius: 4px;
+        font-size: 1em;
+        background: #fff;
+        transition: border 0.2s;
+    }
+    .date-field input:focus {
+        border: 1.5px solid #007bff;
+        outline: none;
+    }
+    @media (max-width: 700px) {
+        .date-search-form, .date-search-fields {
+            flex-direction: column;
+            gap: 10px;
+            align-items: stretch;
+        }
+        .search-btn {
+            margin-left: 0;
+            width: 100%;
+        }
+    }
+    .clear-btn {
+        background: #ff4d4d;
+        border: none;
+        color: #111;
+        font-size: 1.1em;
+        border-radius: 50%;
+        width: 26px;
+        height: 26px;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
+    .clear-btn:hover {
+        background: #c40000;
+        color: #000;
+    }
+
+    /* ページネーションスタイル */
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin: 20px 0;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .pagination-info {
+        font-size: 0.9em;
+        color: #6c757d;
+        margin: 0 15px;
+    }
+
+    .pagination-btn {
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.9em;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        min-width: 80px;
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+        background: linear-gradient(45deg, #0056b3, #004085);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,123,255,0.3);
+    }
+
+    .pagination-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .pagination-btn:disabled:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    .page-number {
+        background: white;
+        color: #007bff;
+        border: 2px solid #007bff;
+        padding: 8px 12px;
+        border-radius: 5px;
+        font-weight: bold;
+        min-width: 40px;
+        text-align: center;
+    }
+
+    .page-number.current {
+        background: #007bff;
+        color: white;
+    }
+
+    @media (max-width: 600px) {
+        .pagination-container {
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .pagination-info {
+            margin: 0;
+        }
+    }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{ page_title }}</h1>
+            <div class="header-row">
+                <span>{{ current_time }}</span>
+                <button class="refresh-btn" onclick="refreshData()">リフレッシュ</button>
+            </div>
+        </header>
+
+        <!-- 統計情報セクション -->
+        <div class="stats-section">
+            <div class="stats-info">
+                <div class="stat-item">
+                    <div class="stat-value" id="total-count">{{ data_count }}</div>
+                    <div class="stat-label">総ファイル数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="visible-count">{{ data_count }}</div>
+                    <div class="stat-label">表示件数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{{ devices|length }}</div>
+                    <div class="stat-label">機器数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{{ last_scan }}</div>
+                    <div class="stat-label">最終スキャン</div>
+                </div>
+                <div class="stat-item oldest-item">
+                    <div class="stat-value" id="oldest-date-value" style="cursor:pointer; text-decoration:underline;">
+                        {% if oldest_date %}
+                            <span onclick="setStartDateFromOldest('{{ oldest_date }}')">{{ oldest_date }}</span>
+                        {% else %}
+                            データなし
+                        {% endif %}
+                    </div>
+                    <div class="stat-label">最古データ<br><span class="oldest-desc">（これが記録上、最も古いデータの日付です）</span></div>
+                </div>
+            </div>
+        </div>
+
+        <main>
+            <div class="controls-section">
+                <form class="date-search-form" onsubmit="searchByDate(); return false;">
+                    <div class="date-search-fields">
+                        <div class="date-field">
+                            <label for="start-date">開始日</label>
+                            <div style="display:flex;align-items:center;gap:4px;">
+                                <input type="text" id="start-date" name="start-date">
+                                <button type="button" class="clear-btn" onclick="clearInput('start-date')" title="クリア" style="margin-left:2px;">×</button>
+                            </div>
+                        </div>
+                        <div class="date-field">
+                            <label for="end-date">終了日</label>
+                            <div style="display:flex;align-items:center;gap:4px;">
+                                <input type="text" id="end-date" name="end-date">
+                                <button type="button" class="clear-btn" onclick="clearInput('end-date')" title="クリア" style="margin-left:2px;">×</button>
+                            </div>
+                        </div>
+                        <div class="date-field">
+                            <label for="start-time">開始時間</label>
+                            <div style="display:flex;align-items:center;gap:4px;">
+                                <input type="time" id="start-time" name="start-time">
+                                <button type="button" class="clear-btn" onclick="clearInput('start-time')" title="クリア" style="margin-left:2px;">×</button>
+                            </div>
+                        </div>
+                        <div class="date-field">
+                            <label for="end-time">終了時間</label>
+                            <div style="display:flex;align-items:center;gap:4px;">
+                                <input type="time" id="end-time" name="end-time">
+                                <button type="button" class="clear-btn" onclick="clearInput('end-time')" title="クリア" style="margin-left:2px;">×</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="search-btn" type="submit">検索</button>
+                </form>
+            </div>
+
+            <div class="main-content-flex">
+                <div class="table-container">
+                    <!-- ページネーション（上部） -->
+                    <div class="pagination-container" id="pagination-top">
+                        <button class="pagination-btn" id="prev-btn-top" onclick="changePage(-1)" disabled>戻る</button>
+                        <div class="pagination-info" id="pagination-info-top">
+                            1-50 / 0件中
+                        </div>
+                        <button class="pagination-btn" id="next-btn-top" onclick="changePage(1)" disabled>次へ</button>
+                    </div>
+
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>機器名</th>
+                                <th>撮影日時</th>
+                                <th>オプション</th>
+                                <th>分類</th>
+                                <th>ファイルパス</th>
+                                <th>日付</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-table-body">
+                            {% for item in table_data %}
+                            <tr data-device="{{ item.id }}" data-category="{{ item.category }}">
+                                <td>{{ item.id }}</td>
+                                <td>{{ item.datetime }}</td>
+                                <td>{{ item.option }}</td>
+                                <td class="category-cell type-{{ item.category }}">
+                                    {{ item.category }}
+                                </td>
+                                <td class="file-path-cell" 
+                                    onclick="playVideo('{{ item.full_path }}', '{{ item.file_path }}', '{{ item.id }}', '{{ item.datetime }}')"
+                                    data-full-path="{{ item.file_path }}">
+                                    {{ item.file_path }}
+                                </td>
+                                <td>{{ item.date }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <!-- ページネーション（下部） -->
+                    <div class="pagination-container" id="pagination-bottom">
+                        <button class="pagination-btn" id="prev-btn-bottom" onclick="changePage(-1)" disabled>戻る</button>
+                        <div class="pagination-info" id="pagination-info-bottom">
+                            1-50 / 0件中
+                        </div>
+                        <button class="pagination-btn" id="next-btn-bottom" onclick="changePage(1)" disabled>次へ</button>
+                    </div>
+                </div>
+                <aside class="sidebar modern-sidebar">
+                    <div class="filter-card">
+                        <div class="category-filter">
+                            <div class="filter-title">カテゴリ</div>
+                            <div class="category-options">
+                                {% for category in categories %}
+                                <label>
+                                    <input type="checkbox" checked value="{{ category }}" onchange="applyFilters()"> {{ category }}
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="filter-card">
+                        <div class="device-filter">
+                            <div class="filter-title">機器名</div>
+                            <div class="device-options">
+                                {% for device in devices %}
+                                <label>
+                                    <input type="checkbox" checked value="{{ device }}" onchange="applyFilters()"> {{ device }}
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </main>
+    </div>
+
+    <!-- 動画再生モーダル（新規追加） -->
+    <div id="videoModal" class="video-modal">
+        <div class="video-modal-content">
+            <div class="video-info" id="video-info">
+                <strong>動画情報:</strong><br>
+                <span id="video-device"></span> - <span id="video-datetime"></span><br>
+                <span id="video-path"></span>
+            </div>
+            <div class="video-container">
+                <video class="video-player" id="video-player" controls preload="metadata">
+                    <source id="video-source" src="" type="video/mp4">
+                    お使いのブラウザは動画再生をサポートしていません。
+                </video>
+            </div>
+            <div class="video-controls">
+                <a class="video-download-btn" id="video-download" href="" download>動画をダウンロード</a>
+                <button class="video-close-btn" onclick="closeVideoModal()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ファイルパス表示モーダル（バックアップ用） -->
+    <div id="pathModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>ファイルパス</h3>
+            <p id="modal-path" style="word-break: break-all; font-family: monospace; background-color: #f8f9fa; padding: 10px; border-radius: 4px;"></p>
+            <button onclick="copyPath()" style="background-color: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">パスをコピー</button>
+        </div>
+    </div>
+
+    <!-- JavaScriptファイルの読み込み -->
+    <script src="/static/js/utils.js"></script>
+    <script>
+    // 利用可能な日付の一覧を保持する変数
+    let availableDates = [];
+
+    // ページネーション用の変数
+    let currentPage = 1;
+    let totalPages = 1;
+    let totalItems = 0;
+    let itemsPerPage = 50;
+    let currentSearchParams = {};
+
+    // ページネーション情報を更新する関数
+    function updatePaginationInfo() {
+        const startItem = (currentPage - 1) * itemsPerPage + 1;
+        const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+        const infoText = `${startItem}-${endItem} / ${totalItems}件中`;
+        
+        document.getElementById('pagination-info-top').textContent = infoText;
+        document.getElementById('pagination-info-bottom').textContent = infoText;
+        
+        // ボタンの有効/無効を設定
+        const prevButtons = ['prev-btn-top', 'prev-btn-bottom'];
+        const nextButtons = ['next-btn-top', 'next-btn-bottom'];
+        
+        prevButtons.forEach(id => {
+            document.getElementById(id).disabled = currentPage <= 1;
+        });
+        
+        nextButtons.forEach(id => {
+            document.getElementById(id).disabled = currentPage >= totalPages;
+        });
+    }
+
+    // ページを変更する関数
+    async function changePage(delta) {
+        const newPage = currentPage + delta;
+        if (newPage >= 1 && newPage <= totalPages) {
+            currentPage = newPage;
+            await loadData();
+        }
+    }
+
+    // データを読み込む関数
+    async function loadData(updateTotalCount = false) {
+        try {
+            showNotification('データを読み込み中...', 'info');
+            
+            // 検索パラメータを構築
+            const params = new URLSearchParams();
+            if (currentSearchParams.startDate) params.append('start_date', currentSearchParams.startDate);
+            if (currentSearchParams.endDate) params.append('end_date', currentSearchParams.endDate);
+            if (currentSearchParams.startTime) params.append('start_time', currentSearchParams.startTime);
+            if (currentSearchParams.endTime) params.append('end_time', currentSearchParams.endTime);
+            params.append('page', currentPage);
+            params.append('per_page', itemsPerPage);
+
+            // 現在選択されているフィルター条件を取得
+            const selectedCategories = Array.from(document.querySelectorAll('.category-options input:checked'))
+                .map(input => input.value);
+            const selectedDevices = Array.from(document.querySelectorAll('.device-options input:checked'))
+                .map(input => input.value);
+
+            // フィルター条件をパラメータに追加
+            if (selectedCategories.length > 0) {
+                params.append('category', selectedCategories.join(','));
+            }
+            if (selectedDevices.length > 0) {
+                params.append('device', selectedDevices.join(','));
+            }
+
+            // APIリクエスト
+            const response = await fetch(`/api/search?${params.toString()}`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // テーブルの内容を更新
+                const tbody = document.getElementById('data-table-body');
+                tbody.innerHTML = '';
+
+                if (data.results.length === 0) {
+                    showNotification('データが見つかりませんでした', 'info');
+                    return;
+                }
+
+                data.results.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.dataset.device = item.id;
+                    row.dataset.category = item.category;
+                    row.innerHTML = `
+                        <td>${item.id}</td>
+                        <td>${item.datetime}</td>
+                        <td>${item.option}</td>
+                        <td class="category-cell type-${item.category}">${item.category}</td>
+                        <td class="file-path-cell" 
+                            onclick="playVideo('${item.full_path}', '${item.file_path}', '${item.id}', '${item.datetime}')"
+                            data-full-path="${item.file_path}">${item.file_path}</td>
+                        <td>${item.date}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                // ページネーション情報を更新
+                totalItems = data.total;
+                totalPages = data.total_pages;
+                updatePaginationInfo();
+
+                // 機器名の色を再適用
+                generateDeviceColors();
+
+                // 総ファイル数の更新（updateTotalCountがtrueのときのみ）
+                if (updateTotalCount) {
+                    document.getElementById('total-count').textContent = data.total;
+                }
+                // 表示件数の更新
+                document.getElementById('visible-count').textContent = data.count;
+                
+                showNotification(`${data.count}件のデータを読み込みました`, 'success');
+            } else {
+                showNotification('データの読み込みに失敗しました', 'error');
+            }
+        } catch (error) {
+            console.error('データ読み込みエラー:', error);
+            showNotification('データの読み込み中にエラーが発生しました', 'error');
+        }
+    }
+
+    // 初期データを読み込む関数
+    async function loadInitialData() {
+        currentPage = 1;
+        currentSearchParams = {};
+        
+        // 初期データ読み込み時は全データを表示
+        try {
+            showNotification('初期データを読み込み中...', 'info');
+            
+            const params = new URLSearchParams();
+            params.append('page', currentPage);
+            params.append('per_page', itemsPerPage);
+
+            const response = await fetch(`/api/search?${params.toString()}`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // テーブルの内容を更新
+                const tbody = document.getElementById('data-table-body');
+                tbody.innerHTML = '';
+
+                if (data.results.length === 0) {
+                    showNotification('データが見つかりませんでした', 'info');
+                    return;
+                }
+
+                data.results.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.dataset.device = item.id;
+                    row.dataset.category = item.category;
+                    row.innerHTML = `
+                        <td>${item.id}</td>
+                        <td>${item.datetime}</td>
+                        <td>${item.option}</td>
+                        <td class="category-cell type-${item.category}">${item.category}</td>
+                        <td class="file-path-cell" 
+                            onclick="playVideo('${item.full_path}', '${item.file_path}', '${item.id}', '${item.datetime}')"
+                            data-full-path="${item.file_path}">${item.file_path}</td>
+                        <td>${item.date}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                // ページネーション情報を更新
+                totalItems = data.total;
+                totalPages = data.total_pages;
+                updatePaginationInfo();
+
+                // 機器名の色を再適用
+                generateDeviceColors();
+
+                // 総ファイル数の更新（初期ロードは必ず更新）
+                document.getElementById('total-count').textContent = data.total;
+                // 表示件数の更新
+                document.getElementById('visible-count').textContent = data.count;
+                
+                showNotification(`${data.count}件のデータを読み込みました`, 'success');
+            } else {
+                showNotification('初期データの読み込みに失敗しました', 'error');
+            }
+        } catch (error) {
+            console.error('初期データ読み込みエラー:', error);
+            showNotification('初期データの読み込み中にエラーが発生しました', 'error');
+        }
+    }
+
+    // 利用可能な日付を 'YYYY-MM-DD' 形式に変換
+    function toDashDate(dateStr) {
+        return dateStr.replace(/\//g, '-');
+    }
+
+    // ローカルタイムでYYYY-MM-DD文字列を返す関数
+    function getLocalDateString(dateObj) {
+        const year = dateObj.getFullYear();
+        const month = ('0' + (dateObj.getMonth() + 1)).slice(-2);
+        const day = ('0' + dateObj.getDate()).slice(-2);
+        return `${year}-${month}-${day}`;
+    }
+
+    function setupFlatpickr() {
+        const enableDates = availableDates.map(toDashDate);
+
+        // 開始日：動画がある日だけ選択可・赤文字
+        flatpickr("#start-date", {
+            dateFormat: "Y-m-d",
+            enable: enableDates,
+            locale: "ja",
+            onDayCreate: function(dObj, dStr, fp, dayElem) {
+                const dateStr = getLocalDateString(dayElem.dateObj);
+                if (enableDates.includes(dateStr)) {
+                    dayElem.style.color = '#dc3545';
+                    dayElem.style.fontWeight = 'bold';
+                }
+            }
+        });
+
+        // 終了日：全日選択可、動画がある日は赤、ない日は黒
+        flatpickr("#end-date", {
+            dateFormat: "Y-m-d",
+            locale: "ja",
+            onDayCreate: function(dObj, dStr, fp, dayElem) {
+                const dateStr = getLocalDateString(dayElem.dateObj);
+                if (enableDates.includes(dateStr)) {
+                    dayElem.style.color = '#dc3545';
+                    dayElem.style.fontWeight = 'bold';
+                } else {
+                    dayElem.style.color = '#222';
+                    dayElem.style.fontWeight = 'normal';
+                }
+            }
+        });
+    }
+
+    // 利用可能な日付を取得する関数
+    async function fetchAvailableDates() {
+        try {
+            const response = await fetch('/api/available-dates');
+            const data = await response.json();
+            if (data.status === 'success') {
+                availableDates = data.dates;
+                setupFlatpickr();
+            }
+        } catch (error) {
+            console.error('日付一覧の取得に失敗:', error);
+            showNotification('日付一覧の取得に失敗しました', 'error');
+        }
+    }
+
+    // 機器名ごとの色を生成する関数
+    function generateDeviceColors() {
+        const devices = Array.from(new Set(Array.from(document.querySelectorAll('tr[data-device]')).map(tr => tr.dataset.device)));
+        const colors = {};
+        
+        // 10色のパステルカラーパレット
+        const colorPalette = [
+            '#FFE4E1', // ミストローズ
+            '#E0FFFF', // ライトシアン
+            '#F0FFF0', // ハニーデュー
+            '#FFF0F5', // ラベンダーブラッシュ
+            '#F5F5DC', // ベージュ
+            '#E6E6FA', // ラベンダー
+            '#F0F8FF', // アリスブルー
+            '#FFFACD', // レモンチフ
+            '#E0F0FF', // ライトブルー
+            '#FFE4B5'  // モカシン
+        ];
+
+        // 機器名ごとに色を割り当て
+        devices.forEach((device, index) => {
+            colors[device] = colorPalette[index % colorPalette.length];
+        });
+
+        // 各行に色を適用
+        document.querySelectorAll('tr[data-device]').forEach(tr => {
+            const device = tr.dataset.device;
+            tr.style.backgroundColor = colors[device];
+            tr.classList.add('device-row');
+        });
+    }
+
+    // データをリフレッシュする関数
+    async function refreshData() {
+        try {
+            showNotification('データをリフレッシュ中...', 'info');
+            
+            // 現在の検索条件を保持したままリフレッシュ
+            await loadData();
+            
+            showNotification('データをリフレッシュしました', 'success');
+        } catch (error) {
+            console.error('リフレッシュエラー:', error);
+            showNotification('リフレッシュ中にエラーが発生しました', 'error');
+        }
+    }
+
+    // フィルターを適用する関数
+    async function applyFilters() {
+        // フィルター適用時はページを1にリセット
+        currentPage = 1;
+        
+        // 現在のフィルター条件を保存（必要に応じて）
+        // ここでは単純にデータを再読み込み
+        await loadData(false); // カテゴリ・機器名フィルタ時は総ファイル数を更新しない
+    }
+
+    // 動画を再生する関数
+    function playVideo(fullPath, filePath, device, datetime) {
+        try {
+            showNotification('動画を読み込み中...', 'info');
+            const encodedPath = encodeURIComponent(filePath);
+            const videoUrl = `/api/video?path=${encodedPath}`;
+            
+            const modal = document.getElementById('videoModal');
+            const videoPlayer = document.getElementById('video-player');
+            const videoSource = document.getElementById('video-source');
+            const videoDownload = document.getElementById('video-download');
+            
+            // 動画情報を設定
+            document.getElementById('video-device').textContent = `機器: ${device}`;
+            document.getElementById('video-datetime').textContent = `日時: ${datetime}`;
+            document.getElementById('video-path').textContent = `パス: ${filePath}`;
+            
+            // 動画ソースを設定
+            videoSource.src = videoUrl;
+            videoPlayer.load();
+            
+            // ダウンロードリンクを設定
+            videoDownload.href = videoUrl;
+            videoDownload.download = filePath.split('/').pop();
+            
+            // モーダルを表示
+            modal.style.display = 'block';
+            
+            // 動画イベントハンドラー
+            videoPlayer.oncanplay = function() {
+                showNotification('動画の準備が完了しました', 'success');
+            };
+            
+            videoPlayer.onerror = function(e) {
+                console.error('動画エラー:', e);
+                showNotification('動画の読み込みに失敗しました', 'error');
+            };
+            
+            videoPlayer.play().catch(error => {
+                console.error('動画再生エラー:', error);
+                showNotification('動画の再生に失敗しました', 'error');
+            });
+        } catch (error) {
+            console.error('動画再生エラー:', error);
+            showNotification('動画の再生に失敗しました', 'error');
+        }
+    }
+
+    // 動画モーダルを閉じる関数
+    function closeVideoModal() {
+        const modal = document.getElementById('videoModal');
+        const videoPlayer = document.getElementById('video-player');
+        
+        videoPlayer.pause();
+        videoPlayer.currentTime = 0;
+        modal.style.display = 'none';
+    }
+
+    // パスをコピーする関数
+    function copyPath() {
+        const pathText = document.getElementById('modal-path').textContent;
+        navigator.clipboard.writeText(pathText).then(() => {
+            showNotification('パスをコピーしました');
+            closeModal();
+        }).catch(error => {
+            console.error('コピーエラー:', error);
+            showNotification('パスのコピーに失敗しました', 'error');
+        });
+    }
+
+    // 日付検索を実行する関数
+    async function searchByDate() {
+        try {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const startTime = document.getElementById('start-time').value;
+            const endTime = document.getElementById('end-time').value;
+
+            // デバッグログ
+            console.log('検索条件:', {
+                startDate,
+                endDate,
+                startTime,
+                endTime
+            });
+
+            // 日付が入力されていない場合は全データを表示
+            if (!startDate && !endDate) {
+                showNotification('日付を指定してください', 'warning');
+                return;
+            }
+
+            // 検索パラメータを保存
+            currentSearchParams = {
+                startDate,
+                endDate,
+                startTime,
+                endTime
+            };
+
+            // ページを1にリセット
+            currentPage = 1;
+
+            showNotification('検索中...', 'info');
+
+            // データを読み込み（日付・時間検索時は総ファイル数も更新）
+            await loadData(true);
+
+        } catch (error) {
+            console.error('検索エラー:', error);
+            showNotification('検索中にエラーが発生しました', 'error');
+        }
+    }
+
+    // 通知を表示する関数
+    function showNotification(message, type = 'info') {
+        // 既存の通知を削除
+        const existingNotification = document.querySelector('.notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+
+        // 通知要素の作成
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+
+        // スタイルの設定
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.padding = '10px 20px';
+        notification.style.borderRadius = '4px';
+        notification.style.zIndex = '1000';
+        notification.style.animation = 'slideIn 0.3s ease-out';
+
+        // タイプに応じた色の設定
+        switch (type) {
+            case 'success':
+                notification.style.backgroundColor = '#d4edda';
+                notification.style.color = '#155724';
+                notification.style.border = '1px solid #c3e6cb';
+                break;
+            case 'error':
+                notification.style.backgroundColor = '#f8d7da';
+                notification.style.color = '#721c24';
+                notification.style.border = '1px solid #f5c6cb';
+                break;
+            case 'warning':
+                notification.style.backgroundColor = '#fff3cd';
+                notification.style.color = '#856404';
+                notification.style.border = '1px solid #ffeeba';
+                break;
+            default:
+                notification.style.backgroundColor = '#d1ecf1';
+                notification.style.color = '#0c5460';
+                notification.style.border = '1px solid #bee5eb';
+        }
+
+        // アニメーション用のスタイルを追加
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes fadeOut {
+                from {
+                    opacity: 1;
+                }
+                to {
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 通知を表示
+        document.body.appendChild(notification);
+
+        // 3秒後に通知を消す
+        setTimeout(() => {
+            notification.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => {
+                notification.remove();
+                style.remove();
+            }, 300);
+        }, 3000);
+    }
+
+    // ページ読み込み時の初期化
+    document.addEventListener('DOMContentLoaded', async () => {
+        generateDeviceColors();
+        fetchAvailableDates(); // 利用可能な日付を取得
+        
+        // 初期データを読み込み
+        await loadInitialData();
+    });
+
+    // 「最古データ」をクリックしたら開始日に自動入力
+    function setStartDateFromOldest(jpDate) {
+        // jpDate: 'YYYY年MM月DD日' → 'YYYY-MM-DD' へ変換
+        const m = jpDate.match(/(\d{4})年(\d{2})月(\d{2})日/);
+        if (!m) return;
+        const ymd = `${m[1]}-${m[2]}-${m[3]}`;
+        const startInput = document.getElementById('start-date');
+        if (startInput) {
+            startInput.value = ymd;
+            // flatpickrが使われていればsetDateも呼ぶ
+            if (startInput._flatpickr) {
+                startInput._flatpickr.setDate(ymd, true);
+            }
+        }
+        showNotification('開始日に最古データの日付をセットしました', 'success');
+    }
+
+    function clearInput(id) {
+        const input = document.getElementById(id);
+        if (input) {
+            input.value = '';
+            // flatpickr対応
+            if (input._flatpickr) {
+                input._flatpickr.clear();
+            }
+        }
+    }
+    </script>
+</body>
+</html>
