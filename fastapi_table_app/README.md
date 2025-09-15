@@ -104,24 +104,16 @@ NAS_BASE_PATH = "H:/Nas_Video_Viewer/fastapi_table_app/TEST_NAS"
 
 ### 5. サーバー起動
 ```bash
+# 起動方法
 uvicorn main:app --host 0.0.0.0 --port 8010 --reload
+
+# 仮想環境で起動する場合の参考
+fastapi_table_app\fast_venv\Scripts\Activate.ps1; cd fastapi_table_app; uvicorn main:app --host 0.0.0.0 --port 8010 --reload
 ```
 
 ### 6. ブラウザアクセス
 ブラウザで [http://localhost:8010](http://localhost:8010) を開く
 
-## 🎮 プログラムの実行と停止
-
-### 実行方法
-- **簡単な方法**: `run.bat` ファイルをダブルクリック
-- **確実な方法**: ターミナルで `./run.bat` と入力し、実行
-
-サーバーが起動したら、Webブラウザで [http://127.0.0.1:8010](http://127.0.0.1:8010) にアクセスしてください。
-
-### 停止方法
-- **簡単な方法**: `stop.bat` ファイルをダブルクリック
-- **確実な方法**: ターミナルで `./stop.bat` と入力し、実行
-- **ターミナルから起動した場合**: そのターミナルで `Ctrl` + `C` を押して停止
 
 ## 💡 使い方
 
